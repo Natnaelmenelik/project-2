@@ -1,0 +1,237 @@
+import { FormEvent, useEffect, useState } from 'react';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import type { Session } from '@supabase/supabase-js';
+import { Lock, Mail, ShieldCheck, Sun, Truck } from 'lucide-react';
+import { isSupabaseConfigured, supabase } from '../lib/supabase';
+
+export default function Login() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || '/dashboard';
+
+  const [session, setSession] = useState<Session | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+
+    if (!isSupabaseConfigured) {
+      setCheckingSession(false);
+      return;
+    }
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      setSession(data.session);
+      setCheckingSession(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!mounted) return;
+      setSession(nextSession);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setErrorMessage('');
+
+    if (!isSupabaseConfigured) {
+      setErrorMessage('Supabase is not configured. Please check your .env file.');
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (error) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      navigate(from, { replace: true });
+    } catch (error) {
+      console.error('Login failed:', error);
+      setErrorMessage('Login failed. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!checkingSession && session) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return (
+    <section className="min-h-screen bg-charcoal-700 pt-28 pb-16 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-charcoal-700 via-charcoal-800 to-charcoal-900" />
+      <div className="absolute -top-24 -right-24 w-72 h-72 bg-sunny-400/10 rounded-full blur-3xl" />
+      <div className="absolute bottom-0 -left-24 w-80 h-80 bg-sunny-500/10 rounded-full blur-3xl" />
+
+      <div className="relative max-w-6xl mx-auto grid lg:grid-cols-2 gap-10 items-center min-h-[calc(100vh-10rem)]">
+        <div className="text-white">
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-4 mb-8">
+            <Link to="/" className="inline-flex items-center gap-3 group shrink-0">
+              <div className="relative">
+                <Sun className="w-10 h-10 text-sunny-400 group-hover:text-sunny-300 transition-colors" strokeWidth={2.5} />
+                <Truck className="w-4 h-4 text-charcoal-800 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" strokeWidth={2.5} />
+              </div>
+
+              <div className="flex flex-col leading-none">
+                <span className="font-heading font-800 text-white text-xl leading-tight tracking-wide">SUNNY</span>
+                <span className="font-heading font-500 text-sunny-400 text-xs tracking-widest uppercase leading-tight">LOGISTICS</span>
+              </div>
+            </Link>
+
+            <div className="inline-flex items-center gap-2 bg-sunny-400/10 border border-sunny-400/30 text-sunny-300 px-5 py-2 rounded-full font-body text-sm font-600 shrink-0">
+              <ShieldCheck className="w-4 h-4" />
+              Secure Admin Access
+            </div>
+          </div>
+
+          <h1 className="font-heading font-800 text-4xl sm:text-5xl lg:text-6xl leading-tight mb-5">
+            Manage logistics leads from one clean dashboard.
+          </h1>
+
+          <p className="font-body text-white/70 text-lg leading-relaxed max-w-xl">
+            Review contact messages, shipper requests, carrier applications, and uploaded documents using the same premium Sunny Logistics style.
+          </p>
+        </div>
+
+        <div className="bg-white rounded-3xl shadow-2xl p-6 sm:p-8 lg:p-10">
+          <div className="mb-8">
+            <h2 className="font-heading font-800 text-3xl text-charcoal-800 mb-2">Admin Login</h2>
+            <p className="font-body text-charcoal-500">
+              Sign in with your Supabase admin user email and password.
+            </p>
+          </div>
+
+          {!isSupabaseConfigured && (
+            <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+              <p className="font-body text-sm text-red-700">
+                Supabase is not configured. Check your <span className="font-700">.env</span> file and restart the dev server.
+              </p>
+            </div>
+          )}
+
+          {errorMessage && (
+            <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+              <p className="font-body text-sm text-red-700">{errorMessage}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label htmlFor="email" className="block font-heading font-700 text-sm text-charcoal-700 mb-2">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="w-5 h-5 text-charcoal-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="admin@sunnylogistics.com"
+                  className="w-full rounded-xl border border-charcoal-200 bg-white pl-12 pr-4 py-3 font-body text-charcoal-800 outline-none transition focus:border-sunny-400 focus:ring-4 focus:ring-sunny-400/20"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block font-heading font-700 text-sm text-charcoal-700 mb-2">
+                Password
+              </label>
+              <div className="relative">
+                <Lock className="w-5 h-5 text-charcoal-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="Enter password"
+                  className="w-full rounded-xl border border-charcoal-200 bg-white pl-12 pr-12 py-3 font-body text-charcoal-800 outline-none transition focus:border-sunny-400 focus:ring-4 focus:ring-sunny-400/20"
+                  required
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((current) => !current)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-charcoal-400 hover:text-sunny-600 transition-colors"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  title={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="w-5 h-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20C7 20 2.73 16.89 1 12a18.45 18.45 0 0 1 5.06-6.06" />
+                      <path d="M9.9 4.24A10.76 10.76 0 0 1 12 4c5 0 9.27 3.11 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                      <path d="M14.12 14.12A3 3 0 0 1 9.88 9.88" />
+                      <path d="M1 1l22 22" />
+                    </svg>
+                  ) : (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="w-5 h-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={submitting || !isSupabaseConfigured}
+              className="w-full bg-sunny-400 hover:bg-sunny-500 disabled:bg-charcoal-200 disabled:text-charcoal-500 text-charcoal-800 font-heading font-800 py-3.5 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 disabled:shadow-none disabled:hover:translate-y-0"
+            >
+              {submitting ? 'Signing in...' : 'Sign In'}
+            </button>
+          </form>
+
+          <div className="mt-6 pt-6 border-t border-charcoal-100">
+            <Link to="/" className="font-body text-sm text-charcoal-500 hover:text-sunny-600 transition-colors">
+              ← Back to website
+            </Link>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}

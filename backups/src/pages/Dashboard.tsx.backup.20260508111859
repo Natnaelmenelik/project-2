@@ -1,0 +1,434 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  BarChart3,
+  Calendar,
+  Download,
+  FileText,
+  Inbox,
+  LogOut,
+  Mail,
+  PackageCheck,
+  RefreshCw,
+  ShieldCheck,
+  Sun,
+  Truck,
+  Users,
+} from 'lucide-react';
+import { supabase } from '../lib/supabase';
+
+interface ContactSubmission {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  company: string | null;
+  message: string;
+  type: string;
+  created_at: string;
+}
+
+interface CarrierRegistration {
+  id: string;
+  company_name: string;
+  mc_number: string;
+  dot_number: string | null;
+  email: string;
+  phone: string;
+  equipment_types: string[] | null;
+  mc_authority_url: string | null;
+  w9_url: string | null;
+  insurance_url: string | null;
+  status: string;
+  created_at: string;
+}
+
+interface LoadStat {
+  id: string;
+  month: string;
+  loads_moved: number;
+  updated_at: string;
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return '—';
+  return new Intl.DateTimeFormat('en', {
+    month: 'short',
+    day: '2-digit',
+    year: 'numeric',
+  }).format(new Date(value));
+}
+
+function statusBadge(status: string) {
+  const normalized = status.toLowerCase();
+
+  if (normalized === 'approved') {
+    return 'bg-green-50 text-green-700 border-green-200';
+  }
+
+  if (normalized === 'rejected') {
+    return 'bg-red-50 text-red-700 border-red-200';
+  }
+
+  return 'bg-sunny-400/10 text-charcoal-700 border-sunny-400/30';
+}
+
+export default function Dashboard() {
+  const navigate = useNavigate();
+
+  const [contacts, setContacts] = useState<ContactSubmission[]>([]);
+  const [carriers, setCarriers] = useState<CarrierRegistration[]>([]);
+  const [loadStats, setLoadStats] = useState<LoadStat | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notice, setNotice] = useState('');
+
+  const shipperRequests = useMemo(
+    () => contacts.filter((contact) => contact.type === 'shipper'),
+    [contacts]
+  );
+
+  const pendingCarriers = useMemo(
+    () => carriers.filter((carrier) => carrier.status === 'pending'),
+    [carriers]
+  );
+
+  const loadDashboardData = async () => {
+    setLoading(true);
+    setNotice('');
+
+    try {
+      const [contactsResponse, carriersResponse, loadStatsResponse] = await Promise.all([
+        supabase
+          .from('contact_submissions')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(50),
+        supabase
+          .from('carrier_registrations')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(50),
+        supabase
+          .from('load_stats')
+          .select('*')
+          .order('month', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+
+      if (contactsResponse.error) throw contactsResponse.error;
+      if (carriersResponse.error) throw carriersResponse.error;
+      if (loadStatsResponse.error) throw loadStatsResponse.error;
+
+      setContacts((contactsResponse.data || []) as ContactSubmission[]);
+      setCarriers((carriersResponse.data || []) as CarrierRegistration[]);
+      setLoadStats((loadStatsResponse.data || null) as LoadStat | null);
+    } catch (error) {
+      console.error('Failed to load dashboard:', error);
+      setNotice('Failed to load dashboard data. Make sure you are logged in and your Supabase policies allow authenticated users to view submissions.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/login', { replace: true });
+  };
+
+  const openCarrierDocument = async (filePath: string | null) => {
+    if (!filePath) {
+      setNotice('No document was uploaded for this field.');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.storage
+        .from('carrier-documents')
+        .createSignedUrl(filePath, 60 * 5);
+
+      if (error) throw error;
+
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+      }
+    } catch (error) {
+      console.error('Failed to open document:', error);
+      setNotice('Unable to open this document. Check the storage bucket policies.');
+    }
+  };
+
+  const cards = [
+    {
+      label: 'Total Submissions',
+      value: contacts.length,
+      icon: Inbox,
+      helper: 'Latest contact and quote messages',
+    },
+    {
+      label: 'Shipper Requests',
+      value: shipperRequests.length,
+      icon: PackageCheck,
+      helper: 'Requests saved from shipper form',
+    },
+    {
+      label: 'Carrier Applications',
+      value: carriers.length,
+      icon: Truck,
+      helper: `${pendingCarriers.length} pending review`,
+    },
+    {
+      label: 'Loads This Month',
+      value: loadStats?.loads_moved ?? 0,
+      icon: BarChart3,
+      helper: loadStats ? `Month: ${loadStats.month}` : 'No load stats yet',
+    },
+  ];
+
+  return (
+    <section className="min-h-screen bg-charcoal-50 pt-24 pb-12">
+      <div className="bg-charcoal-700 border-b border-charcoal-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+            <div>
+              <div className="inline-flex items-center gap-2 bg-sunny-400/10 border border-sunny-400/30 text-sunny-300 px-4 py-2 rounded-full font-body text-sm font-600 mb-4">
+                <ShieldCheck className="w-4 h-4" />
+                Sunny Logistics Admin
+              </div>
+
+              <h1 className="font-heading font-800 text-3xl sm:text-4xl text-white">
+                Dashboard
+              </h1>
+              <p className="font-body text-white/60 mt-2">
+                Manage contact messages, shipper requests, carrier applications, and uploaded documents.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={loadDashboardData}
+                type="button"
+                className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/15 text-white font-heading font-700 px-4 py-2.5 rounded-xl transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Refresh
+              </button>
+
+              <button
+                onClick={handleLogout}
+                type="button"
+                className="inline-flex items-center gap-2 bg-sunny-400 hover:bg-sunny-500 text-charcoal-800 font-heading font-800 px-4 py-2.5 rounded-xl transition-colors shadow-lg"
+              >
+                <LogOut className="w-4 h-4" />
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 relative z-10">
+        {notice && (
+          <div className="mb-6 rounded-2xl border border-sunny-400/40 bg-sunny-50 px-5 py-4">
+            <p className="font-body text-sm text-charcoal-700">{notice}</p>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="bg-white rounded-3xl shadow-xl p-10 text-center">
+            <div className="w-12 h-12 border-4 border-sunny-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="font-heading font-700 text-charcoal-800">Loading dashboard...</p>
+          </div>
+        ) : (
+          <>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+              {cards.map((card) => {
+                const Icon = card.icon;
+
+                return (
+                  <div key={card.label} className="bg-white rounded-2xl shadow-lg p-5 border border-charcoal-100">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-body text-sm text-charcoal-500">{card.label}</p>
+                        <p className="font-heading font-800 text-3xl text-charcoal-800 mt-1">{card.value}</p>
+                      </div>
+                      <div className="w-11 h-11 rounded-xl bg-sunny-400/15 flex items-center justify-center">
+                        <Icon className="w-5 h-5 text-sunny-600" />
+                      </div>
+                    </div>
+                    <p className="font-body text-xs text-charcoal-400 mt-4">{card.helper}</p>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="grid xl:grid-cols-2 gap-8 mb-8">
+              <div className="bg-white rounded-3xl shadow-lg border border-charcoal-100 overflow-hidden">
+                <div className="p-6 border-b border-charcoal-100 flex items-center justify-between gap-4">
+                  <div>
+                    <h2 className="font-heading font-800 text-xl text-charcoal-800">Contact Submissions</h2>
+                    <p className="font-body text-sm text-charcoal-500 mt-1">General contacts and shipper messages.</p>
+                  </div>
+                  <Mail className="w-6 h-6 text-sunny-500" />
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[680px]">
+                    <thead className="bg-charcoal-50">
+                      <tr>
+                        <th className="px-5 py-3 text-left font-heading font-700 text-xs uppercase tracking-wider text-charcoal-500">Name</th>
+                        <th className="px-5 py-3 text-left font-heading font-700 text-xs uppercase tracking-wider text-charcoal-500">Type</th>
+                        <th className="px-5 py-3 text-left font-heading font-700 text-xs uppercase tracking-wider text-charcoal-500">Email</th>
+                        <th className="px-5 py-3 text-left font-heading font-700 text-xs uppercase tracking-wider text-charcoal-500">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-charcoal-100">
+                      {contacts.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-5 py-8 text-center font-body text-charcoal-400">
+                            No contact submissions yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        contacts.slice(0, 10).map((contact) => (
+                          <tr key={contact.id} className="hover:bg-charcoal-50/70 transition-colors">
+                            <td className="px-5 py-4">
+                              <p className="font-heading font-700 text-sm text-charcoal-800">{contact.name}</p>
+                              <p className="font-body text-xs text-charcoal-500 max-w-xs truncate">{contact.message}</p>
+                            </td>
+                            <td className="px-5 py-4">
+                              <span className="inline-flex rounded-full border border-sunny-400/30 bg-sunny-400/10 px-3 py-1 font-body text-xs font-600 text-charcoal-700 capitalize">
+                                {contact.type}
+                              </span>
+                            </td>
+                            <td className="px-5 py-4 font-body text-sm text-charcoal-600">{contact.email}</td>
+                            <td className="px-5 py-4 font-body text-sm text-charcoal-500">{formatDate(contact.created_at)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-3xl shadow-lg border border-charcoal-100 overflow-hidden">
+                <div className="p-6 border-b border-charcoal-100 flex items-center justify-between gap-4">
+                  <div>
+                    <h2 className="font-heading font-800 text-xl text-charcoal-800">Carrier Registrations</h2>
+                    <p className="font-body text-sm text-charcoal-500 mt-1">Applications and uploaded documents.</p>
+                  </div>
+                  <Users className="w-6 h-6 text-sunny-500" />
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[760px]">
+                    <thead className="bg-charcoal-50">
+                      <tr>
+                        <th className="px-5 py-3 text-left font-heading font-700 text-xs uppercase tracking-wider text-charcoal-500">Company</th>
+                        <th className="px-5 py-3 text-left font-heading font-700 text-xs uppercase tracking-wider text-charcoal-500">MC / DOT</th>
+                        <th className="px-5 py-3 text-left font-heading font-700 text-xs uppercase tracking-wider text-charcoal-500">Status</th>
+                        <th className="px-5 py-3 text-left font-heading font-700 text-xs uppercase tracking-wider text-charcoal-500">Documents</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-charcoal-100">
+                      {carriers.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-5 py-8 text-center font-body text-charcoal-400">
+                            No carrier registrations yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        carriers.slice(0, 10).map((carrier) => (
+                          <tr key={carrier.id} className="hover:bg-charcoal-50/70 transition-colors">
+                            <td className="px-5 py-4">
+                              <p className="font-heading font-700 text-sm text-charcoal-800">{carrier.company_name}</p>
+                              <p className="font-body text-xs text-charcoal-500">{carrier.email}</p>
+                              <p className="font-body text-xs text-charcoal-400">{carrier.phone}</p>
+                            </td>
+                            <td className="px-5 py-4">
+                              <p className="font-body text-sm text-charcoal-700">MC: {carrier.mc_number}</p>
+                              <p className="font-body text-sm text-charcoal-500">DOT: {carrier.dot_number || '—'}</p>
+                              <p className="font-body text-xs text-charcoal-400 mt-1">
+                                {(carrier.equipment_types || []).join(', ') || 'No equipment listed'}
+                              </p>
+                            </td>
+                            <td className="px-5 py-4">
+                              <span className={`inline-flex rounded-full border px-3 py-1 font-body text-xs font-700 capitalize ${statusBadge(carrier.status)}`}>
+                                {carrier.status}
+                              </span>
+                            </td>
+                            <td className="px-5 py-4">
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  onClick={() => openCarrierDocument(carrier.mc_authority_url)}
+                                  type="button"
+                                  className="inline-flex items-center gap-1 rounded-lg bg-charcoal-700 hover:bg-charcoal-800 text-white px-3 py-2 font-body text-xs font-600 transition-colors"
+                                >
+                                  <FileText className="w-3.5 h-3.5" />
+                                  MC
+                                </button>
+                                <button
+                                  onClick={() => openCarrierDocument(carrier.w9_url)}
+                                  type="button"
+                                  className="inline-flex items-center gap-1 rounded-lg bg-charcoal-700 hover:bg-charcoal-800 text-white px-3 py-2 font-body text-xs font-600 transition-colors"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                  W-9
+                                </button>
+                                <button
+                                  onClick={() => openCarrierDocument(carrier.insurance_url)}
+                                  type="button"
+                                  className="inline-flex items-center gap-1 rounded-lg bg-sunny-400 hover:bg-sunny-500 text-charcoal-800 px-3 py-2 font-body text-xs font-800 transition-colors"
+                                >
+                                  <FileText className="w-3.5 h-3.5" />
+                                  Insurance
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-3xl shadow-lg border border-charcoal-100 p-6">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-sunny-400/15 flex items-center justify-center">
+                    <Calendar className="w-6 h-6 text-sunny-600" />
+                  </div>
+                  <div>
+                    <h2 className="font-heading font-800 text-xl text-charcoal-800">Load Stats</h2>
+                    <p className="font-body text-sm text-charcoal-500 mt-1">
+                      Homepage load counter currently shows{' '}
+                      <span className="font-700 text-charcoal-800">{loadStats?.loads_moved ?? 0}</span> loads
+                      {loadStats?.month ? ` for ${loadStats.month}` : ''}.
+                    </p>
+                    <p className="font-body text-xs text-charcoal-400 mt-1">
+                      Last updated: {formatDate(loadStats?.updated_at)}
+                    </p>
+                  </div>
+                </div>
+
+                <Link
+                  to="/"
+                  className="inline-flex items-center justify-center gap-2 bg-charcoal-700 hover:bg-charcoal-800 text-white font-heading font-700 px-5 py-3 rounded-xl transition-colors"
+                >
+                  <Sun className="w-4 h-4 text-sunny-400" />
+                  View Website
+                </Link>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </section>
+  );
+}

@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    @apply text-charcoal-700;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Poppins', sans-serif;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-sunny-400 hover:bg-sunny-500 text-charcoal-800 font-heading font-700 px-8 py-4 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0;
+  }
+
+  .btn-outline {
+    @apply border-2 border-white text-white hover:bg-white hover:text-charcoal-800 font-heading font-600 px-8 py-4 rounded-lg transition-all duration-200;
+  }
+
+  .section-heading {
+    @apply font-heading font-800 text-charcoal-700 leading-tight;
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-xl;
+  }
+}
+
+@layer utilities {
+  .font-700 {
+    font-weight: 700;
+  }
+
+  .font-800 {
+    font-weight: 800;
+  }
+
+  .font-600 {
+    font-weight: 600;
+  }
+}

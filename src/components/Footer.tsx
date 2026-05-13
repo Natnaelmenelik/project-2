@@ -1,0 +1,121 @@
+import { Link } from 'react-router-dom';
+import { Mail, MapPin, MessageCircle, Phone, Sun, Truck } from 'lucide-react';
+
+export default function Footer() {
+  return (
+    <footer className="bg-charcoal-800 text-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
+          <div className="lg:col-span-1">
+            <Link to="/" className="flex items-center gap-2 mb-4 group">
+              <div className="relative">
+                <Sun className="w-8 h-8 text-sunny-400" strokeWidth={2.5} />
+                <Truck className="w-3.5 h-3.5 text-charcoal-800 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" strokeWidth={2.5} />
+              </div>
+
+              <div className="flex flex-col leading-none">
+                <span className="font-heading font-800 text-white text-lg leading-tight">SUNNY</span>
+                <span className="font-heading text-sunny-400 text-xs tracking-widest uppercase">LOGISTICS</span>
+              </div>
+            </Link>
+
+            <p className="font-body text-white/60 text-sm leading-relaxed mb-6">
+              Reliable freight dispatching connecting carriers with high-paying loads across the United States, 24 hours a day, 7 days a week.
+            </p>
+
+            <a
+              href="https://wa.me/12345678900"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-500 px-4 py-2 rounded-lg text-sm font-body font-600 transition-colors"
+            >
+              <MessageCircle className="w-4 h-4" />
+              WhatsApp Us
+            </a>
+          </div>
+
+          <div>
+            <h4 className="font-heading font-700 text-white mb-4 text-sm tracking-wider uppercase">Quick Links</h4>
+            <ul className="space-y-2.5">
+              {[
+                { path: '/', label: 'Home' },
+                { path: '/carriers', label: 'For Carriers' },
+                { path: '/shippers', label: 'For Shippers' },
+                { path: '/about', label: 'About Us' },
+                { path: '/contact', label: 'Contact' },
+              ].map((link) => (
+                <li key={link.path}>
+                  <Link
+                    to={link.path}
+                    className="font-body text-white/60 hover:text-sunny-400 text-sm transition-colors"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-heading font-700 text-white mb-4 text-sm tracking-wider uppercase">Services</h4>
+            <ul className="space-y-2.5">
+              {[
+                'Dry Van Dispatching',
+                'Reefer / Refrigerated',
+                'Flatbed Dispatching',
+                'Power Only',
+                'Hot Shot',
+                'Owner-Operator Support',
+              ].map((service) => (
+                <li key={service}>
+                  <span className="font-body text-white/60 text-sm">{service}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-heading font-700 text-white mb-4 text-sm tracking-wider uppercase">Contact</h4>
+            <ul className="space-y-3">
+              <li className="flex items-start gap-3">
+                <Phone className="w-4 h-4 text-sunny-400 mt-0.5 shrink-0" />
+                <div>
+                  <a href="tel:+12345678900" className="font-body text-white/80 hover:text-white text-sm transition-colors block">
+                    +1 (234) 567-8900
+                  </a>
+                  <span className="text-white/40 text-xs">24/7 Dispatch Line</span>
+                </div>
+              </li>
+
+              <li className="flex items-start gap-3">
+                <Mail className="w-4 h-4 text-sunny-400 mt-0.5 shrink-0" />
+                <a href="mailto:dispatch@sunnylogistics.com" className="font-body text-white/80 hover:text-white text-sm transition-colors">
+                  dispatch@sunnylogistics.com
+                </a>
+              </li>
+
+              <li className="flex items-start gap-3">
+                <MapPin className="w-4 h-4 text-sunny-400 mt-0.5 shrink-0" />
+                <span className="font-body text-white/60 text-sm">
+                  Addis Ababa, Ethiopia
+                  <br />
+                  (Remote Dispatch Operations)
+                </span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="border-t border-white/10 mt-12 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="font-body text-white/40 text-xs">
+            &copy; {new Date().getFullYear()} Sunny Logistics. All rights reserved.
+          </p>
+
+          <p className="font-body text-white/40 text-xs">
+            Licensed & Insured Freight Dispatch Services
+          </p>
+        </div>
+      </div>
+    </footer>
+  );
+}
